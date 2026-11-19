@@ -1,0 +1,24 @@
+# docker compose up -d --build
+services:
+  objobssap-explorer:
+    build:
+      context: .
+      args:
+        BASE_HREF: ${BASE_HREF:-/}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+    image: objobssap-explorer:latest
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      # Extra hosts the proxy may reach, besides those in services.json (comma separated)
+      PROXY_ALLOW_HOSTS: ${PROXY_ALLOW_HOSTS:-}
+      PROXY_TIMEOUT_MS: ${PROXY_TIMEOUT_MS:-60000}
+      # Outbound HTTP proxy, if the server needs one to reach the internet
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}
+    # Edit the observatory list and settings without rebuilding: uncomment to use local copies.
+    # volumes:
+    #   - ./deploy/services.json:/app/dist/objobssap-explorer/browser/services.json:ro
+    #   - ./deploy/config.json:/app/dist/objobssap-explorer/browser/config.json:ro

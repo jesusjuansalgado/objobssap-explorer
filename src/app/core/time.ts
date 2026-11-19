@@ -14,15 +14,21 @@ export function nowMjd(): number {
   return dateToMjd(new Date());
 }
 
+/** ISO string rounded to the nearest second or minute (MJD arithmetic leaves float noise: 15:59:59.999). */
+function roundedIso(mjd: number, unitMs: number): string {
+  const ms = (mjd - MJD_UNIX_EPOCH) * DAY_MS;
+  return new Date(Math.round(ms / unitMs) * unitMs).toISOString();
+}
+
 /** "2026-11-19 15:20" (UTC). */
 export function formatUtc(mjd: number, withSeconds = false): string {
-  const iso = mjdToDate(mjd).toISOString();
+  const iso = roundedIso(mjd, withSeconds ? 1000 : 60_000);
   return iso.slice(0, 10) + ' ' + iso.slice(11, withSeconds ? 19 : 16);
 }
 
 /** Value for an <input type="datetime-local"> interpreted as UTC. */
 export function mjdToInputValue(mjd: number): string {
-  return mjdToDate(mjd).toISOString().slice(0, 16);
+  return roundedIso(mjd, 60_000).slice(0, 16);
 }
 
 export function inputValueToMjd(value: string): number | undefined {

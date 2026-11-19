@@ -4,7 +4,7 @@ import { formatDecDms, formatRaHms, parseCoordinates } from './coords';
 import { ServiceConfig } from './models';
 import { buildQueryUrl } from './objobssap.service';
 import { parseSesame } from './sesame.service';
-import { dateToMjd, formatDuration, inputValueToMjd, intersectIntervals, mergeIntervals, mjdToDate } from './time';
+import { dateToMjd, formatDuration, formatUtc, inputValueToMjd, mjdToInputValue, intersectIntervals, mergeIntervals, mjdToDate } from './time';
 import { parseObservabilityVoTable } from './votable';
 
 const SWIFT_LIKE = `<?xml version="1.0" encoding="utf-8"?>
@@ -103,6 +103,14 @@ describe('time', () => {
     expect(dateToMjd(new Date('2000-01-01T12:00:00Z'))).toBe(51544.5);
     expect(mjdToDate(40587).toISOString()).toBe('1970-01-01T00:00:00.000Z');
     expect(inputValueToMjd('2000-01-01T12:00')).toBe(51544.5);
+  });
+
+  it('rounds away float noise when formatting', () => {
+    // floor(mjd * 24) / 24 for 16:00 UTC lands a hair before the hour.
+    const hour = Math.floor((61363 + 16 / 24 + 1e-6) * 24) / 24;
+    expect(mjdToInputValue(hour)).toBe('2026-11-19T16:00');
+    expect(formatUtc(hour)).toBe('2026-11-19 16:00');
+    expect(formatUtc(61363.5 - 1e-9, true)).toBe('2026-11-19 12:00:00');
   });
 
   it('merges and intersects intervals', () => {

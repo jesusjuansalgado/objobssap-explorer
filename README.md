@@ -3,6 +3,8 @@
 An Angular web app that answers: **when can each observatory observe my target?**
 It speaks the IVOA [Object Observability Simple Access Protocol (ObjObsSAP)](https://github.com/ivoa-std/ObjObsSAP).
 
+![The Crab Nebula over seven days: Aladin Lite with DSS2, and timelines for Swift, the reference service and their simultaneous windows](docs/screenshots/overview.jpg)
+
 1. **Target and constraints:** type a name (resolved with CDS Sesame) or coordinates,
    pick a UTC time window, and optionally set `MIN_OBS` (shortest useful window) and `FACILITY`.
 2. **Sky view:** Aladin Lite centred on the target. Surveys (HiPS) are grouped by regime
@@ -13,6 +15,12 @@ It speaks the IVOA [Object Observability Simple Access Protocol (ObjObsSAP)](htt
    Drag to zoom, Ctrl/⌘ + wheel to zoom, Shift + wheel to pan, hover for times, click a window
    to see every column of the row. A shaded band marks a service's `T_MAX_HARD_LIMIT`, and
    the results export to CSV.
+
+| Zoomed timeline, hover and window details | Dark theme, X-ray survey (eROSITA) of the Vela pulsar |
+|---|---|
+| ![Timeline zoomed to one day](docs/screenshots/timeline.png) | ![Dark theme with the eROSITA survey](docs/screenshots/dark-xray.jpg) |
+
+![The Services panel: observatories queried, with their endpoints and notes](docs/screenshots/services.png)
 
 Every query is written into the page URL (`?target=M1&ra=…&dec=…&start=…&end=…`), so a link
 reopens and re-runs it.
@@ -38,8 +46,14 @@ or with Docker:
 
 ```bash
 docker build -t objobssap-explorer .
-docker run -p 8080:8080 objobssap-explorer
 ```
+
+```bash
+docker run -d -p 8080:8080 objobssap-explorer
+```
+
+**Deploying on a server** (sub-paths, nginx/Apache, internal npm mirrors, outbound proxies,
+updating the observatory list without rebuilding): see [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Why a proxy?
 
