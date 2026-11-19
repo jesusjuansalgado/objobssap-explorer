@@ -12,6 +12,20 @@
 .overlay.soft { inset: auto 0 16px 0; }
 .overlay.soft::before { content: none; }
 .overlay.error { color: #ff9a9a; padding: 24px; text-align: center; }
+.hips-status {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 20;
+  display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px);
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; line-height: 1.4;
+  background: rgb(10 14 24 / 0.82); color: #e5e9f2; border: 1px solid rgb(255 255 255 / 0.15);
+  backdrop-filter: blur(4px);
+}
+.hips-status.error { border-radius: 10px; border-color: #ff6b7f; color: #ffd0d6; }
+.hips-status .dismiss { background: none; border: none; color: inherit; font-size: 16px; line-height: 1; padding: 0 2px; }
+.spinner {
+  width: 12px; height: 12px; border-radius: 50%; flex: none;
+  border: 2px solid rgb(255 255 255 / 0.25); border-top-color: #fff; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .chooser {
   display: flex; flex-direction: column; gap: 12px;
@@ -42,6 +56,8 @@
 .survey:hover { background: var(--surface-2); }
 .survey.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .survey .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+.survey .dot.busy { animation: blink 0.9s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.2; } }
 .survey .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .survey.nocov { color: var(--muted); }
 .survey.nocov .dot { background: transparent; border: 1px solid var(--muted); }
@@ -59,6 +75,7 @@
 
 @media (max-width: 900px) {
   .sky { grid-template-columns: 1fr; }
+  .hips-status { top: 62px; } /* below Aladin's coordinate box */
   .viewer { border-radius: var(--radius) var(--radius) 0 0; min-height: 380px; }
   .chooser { border-left: none; border-top: 1px solid var(--border); max-height: none; }
 }

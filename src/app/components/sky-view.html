@@ -6,6 +6,16 @@
     } @else if (status() === 'error') {
       <div class="overlay error">Aladin Lite could not start: {{ error() }}</div>
     }
+    @if (hipsNotice(); as n) {
+      <div class="hips-status" [class.error]="n.kind === 'error'" role="status">
+        <span>{{ n.text }}</span>
+        @if (n.kind === 'error') {
+          <button type="button" class="dismiss" (click)="hipsNotice.set(undefined)" aria-label="Dismiss">×</button>
+        }
+      </div>
+    } @else if (hipsLoading(); as id) {
+      <div class="hips-status" role="status"><span class="spinner"></span>Loading {{ titleOf(id) }}…</div>
+    }
     @if (!target() && status() === 'ready') {
       <div class="overlay soft">Enter a target to centre the view</div>
     }
@@ -44,7 +54,7 @@
             [title]="covers(s.id) === false ? s.id + ' — no coverage at the target' : s.id"
             (click)="selectHips(s.id)"
           >
-            <span class="dot"></span>
+            <span class="dot" [class.busy]="hipsLoading() === s.id"></span>
             <span class="name">{{ s.title }}</span>
             @if (covers(s.id) === false) {
               <span class="badge">no data here</span>

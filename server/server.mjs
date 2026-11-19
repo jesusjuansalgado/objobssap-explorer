@@ -55,7 +55,11 @@ createServer(async (req, res) => {
     const hashed = /-[A-Z0-9]{8,}\.(js|css)$/.test(file);
     return sendFile(res, file, hashed ? 'public, max-age=31536000, immutable' : 'no-cache');
   }
-  sendFile(res, join(root, 'index.html'), 'no-cache');
+  // Unknown paths get the app only when a browser navigates to them; other requests
+  // (e.g. Aladin Lite probing for a local HiPS) need a real 404 to fail fast.
+  if ((req.headers.accept ?? '').includes('text/html')) return sendFile(res, join(root, 'index.html'), 'no-cache');
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not found');
 }).listen(port, host, () => {
   console.log(`Observability Explorer on http://${host}:${port}  (static: ${root})`);
   console.log(`Proxy allow-list: ${[...allowed].join(', ') || '(empty)'}${process.env.PROXY_ALLOW_ANY === '1' ? ' + any public host' : ''}`);

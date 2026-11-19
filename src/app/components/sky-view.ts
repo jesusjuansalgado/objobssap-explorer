@@ -12,7 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import type AladinLite from 'aladin-lite';
-import type { AladinCatalog, AladinInstance } from 'aladin-lite';
+import type { AladinCatalog, AladinHiPS, AladinInstance } from 'aladin-lite';
 import { AppConfigService } from '../core/app-config.service';
 import { HipsEntry, REGIMES, Regime, findRegimeOf } from '../core/hips-catalog';
 import { Target } from '../core/models';
@@ -36,6 +36,11 @@ export class SkyView implements OnDestroy {
   readonly status = signal<'loading' | 'ready' | 'error'>('loading');
   readonly error = signal<string | undefined>(undefined);
 
+  /** Survey being loaded into Aladin (metadata not yet in), if any. */
+  readonly hipsLoading = signal<string | undefined>(undefined);
+  /** Set when a load is taking long or failed; shown over the viewer. */
+  readonly hipsNotice = signal<{ kind: 'slow' | 'error'; text: string } | undefined>(undefined);
+
   /** HiPS IDs (all regimes) that cover the current target, from the MocServer. */
   readonly covering = signal<Set<string> | undefined>(undefined);
   /** Extra surveys of the active regime loaded from the MocServer. */
@@ -53,19 +58,25 @@ export class SkyView implements OnDestroy {
       .slice(0, 200);
   });
 
-  readonly currentTitle = computed(() => {
-    const id = this.currentHips();
-    for (const r of REGIMES) {
-      const s = r.surveys.find((x) => x.id === id) ?? this.moreSurveys()[r.key]?.find((x) => x.id === id);
-      if (s) return s.title;
-    }
-    return id;
-  });
+  readonly currentTitle = computed(() => this.titleOf(this.currentHips()));
 
   private A?: typeof AladinLite;
   private aladin?: AladinInstance;
   private marker?: AladinCatalog;
   private coverageAbort?: AbortController;
+
+  // Survey switching. Aladin Lite 3.9 adds a new base layer only after *every* earlier layer
+  // request has settled, and then loads tiles for each of them in turn. Clicking through
+  // several surveys therefore drew each one, and the last only appeared after all of them.
+  // So only one layer is handed to Aladin at a time; a click meanwhile replaces `pending`,
+  // whose metadata starts loading at once (the HiPS constructor fetches it), so it is
+  // usually ready when the current one settles.
+  /** Last survey that actually loaded (what the viewer shows). */
+  private shownHips = this.cfg.config().defaultHips;
+  private inFlight?: { id: string; seq: number };
+  private pending?: { id: string; layer: AladinHiPS };
+  private seq = 0;
+  private slowTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
     afterNextRender(() => void this.init());
@@ -81,6 +92,7 @@ export class SkyView implements OnDestroy {
 
   ngOnDestroy() {
     this.coverageAbort?.abort();
+    clearTimeout(this.slowTimer);
   }
 
   selectRegime(r: Regime) {
@@ -90,7 +102,77 @@ export class SkyView implements OnDestroy {
 
   selectHips(id: string) {
     this.currentHips.set(id);
-    this.aladin?.setImageSurvey(id);
+    this.hipsNotice.set(undefined);
+    if (!this.aladin || !this.A) return; // init() loads currentHips
+    if (!this.inFlight && id === this.shownHips) return;
+    const layer = this.A.HiPS(id, {
+      name: this.titleOf(id),
+      // One stable handler: Aladin may swap in options cached from an earlier
+      // instance of the same survey, so the callback must not depend on the instance.
+      successCallback: this.onLayerLoaded,
+      errorCallback: this.onLayerFailed,
+    });
+    if (this.inFlight) {
+      this.pending = { id, layer }; // replaces any earlier pending choice
+      return;
+    }
+    this.startLayer(id, layer);
+  }
+
+  private startLayer(id: string, layer: AladinHiPS) {
+    const seq = ++this.seq;
+    this.inFlight = { id, seq };
+    this.hipsLoading.set(id);
+    clearTimeout(this.slowTimer);
+    this.slowTimer = setTimeout(() => {
+      if (this.inFlight?.seq !== seq) return;
+      this.hipsNotice.set({ kind: 'slow', text: `${this.titleOf(id)} is slow to answer; its HiPS servers may be busy.` });
+    }, 8000);
+    this.aladin!.setBaseImageLayer(layer);
+  }
+
+  private readonly onLayerLoaded = () => {
+    if (!this.inFlight) return;
+    this.shownHips = this.inFlight.id;
+    this.settle();
+  };
+
+  private readonly onLayerFailed = (err: unknown) => {
+    if (!this.inFlight) return;
+    const failed = this.inFlight.id;
+    // Aladin's reasons are internal ("does not refer to a found CDS ID nor a local path…"),
+    // and in practice mean the survey's metadata could not be fetched from any mirror.
+    const raw = String(err instanceof Error ? err.message : (err ?? ''));
+    const reason = /found CDS ID|mirrors|fetch|network/i.test(raw) ? 'its HiPS servers did not answer' : '';
+    this.settle();
+    // Report it only if it is still what the user wants (nothing newer queued or chosen).
+    if (!this.inFlight && this.currentHips() === failed) {
+      // Point the selection back at what is on screen.
+      this.currentHips.set(this.shownHips);
+      this.hipsNotice.set({
+        kind: 'error',
+        text: `Could not load ${this.titleOf(failed)}${reason ? `: ${reason}` : ''}. Still showing ${this.titleOf(this.shownHips)}.`,
+      });
+    }
+  };
+
+  /** The in-flight layer finished (either way): start the pending one, if any. */
+  private settle() {
+    clearTimeout(this.slowTimer);
+    this.inFlight = undefined;
+    this.hipsLoading.set(undefined);
+    if (this.hipsNotice()?.kind === 'slow') this.hipsNotice.set(undefined);
+    const next = this.pending;
+    this.pending = undefined;
+    if (next && next.id !== this.shownHips) this.startLayer(next.id, next.layer);
+  }
+
+  titleOf(id: string): string {
+    for (const r of REGIMES) {
+      const s = r.surveys.find((x) => x.id === id) ?? this.moreSurveys()[r.key]?.find((x) => x.id === id);
+      if (s) return s.title;
+    }
+    return id;
   }
 
   covers(id: string): boolean | undefined {
