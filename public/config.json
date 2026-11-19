@@ -1,0 +1,7 @@
+{
+  "proxyPrefix": "proxy?url=",
+  "sesameUrl": "https://cds.unistra.fr/cgi-bin/nph-sesame/-oxp/SNV",
+  "mocServerUrl": "https://alasky.cds.unistra.fr/MocServer/query",
+  "defaultHips": "CDS/P/DSS2/color",
+  "defaultSpanDays": 30
+}

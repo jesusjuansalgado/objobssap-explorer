@@ -1,0 +1,92 @@
+<form class="query" (ngSubmit)="submit()" autocomplete="off">
+  <div class="field target">
+    <label for="target-name">Target</label>
+    <div class="with-button">
+      <input
+        id="target-name"
+        name="name"
+        [(ngModel)]="name"
+        placeholder="M 31, Crab, SN 1987A, 83.63 +22.01…"
+        (keydown.enter)="$event.preventDefault(); resolve()"
+        (blur)="name.trim() && resolve()"
+      />
+      <button type="button" class="secondary" (click)="resolve()" [disabled]="resolving() || !name.trim()">
+        {{ resolving() ? 'Resolving…' : 'Resolve' }}
+      </button>
+    </div>
+    @if (resolveError()) {
+      <p class="hint error">{{ resolveError() }}</p>
+    } @else if (target(); as t) {
+      <p class="hint">
+        @if (t.resolvedName) {
+          <strong>{{ t.resolvedName }}</strong>
+          @if (t.otype) { <span class="tag">{{ t.otype }}</span> }
+          @if (t.resolver) { <span class="muted">via {{ t.resolver }}</span> }
+        } @else if (t.name !== 'Position') {
+          <strong>{{ t.name }}</strong>
+        } @else {
+          <span class="muted">Fixed position</span>
+        }
+      </p>
+    } @else {
+      <p class="hint muted">Resolved with CDS Sesame</p>
+    }
+  </div>
+
+  <div class="field coords">
+    <label for="coords">RA, Dec (ICRS)</label>
+    <input id="coords" name="coords" [(ngModel)]="coordsText" (change)="onCoordsEdited()" placeholder="83.6332 +22.0145" />
+    @if (coordsError()) {
+      <p class="hint error">{{ coordsError() }}</p>
+    } @else {
+      <p class="hint mono">{{ targetSummary() || 'degrees or hh mm ss ±dd mm ss' }}</p>
+    }
+  </div>
+
+  <div class="field time">
+    <label for="start">Window (UTC)</label>
+    <div class="range">
+      <input id="start" type="datetime-local" name="start" [(ngModel)]="startText" />
+      <span class="muted">→</span>
+      <input id="end" type="datetime-local" name="end" [(ngModel)]="endText" aria-label="End (UTC)" />
+    </div>
+    <div class="chips">
+      <button type="button" class="chip" (click)="startNow()">now</button>
+      @for (s of spans; track s.days) {
+        <button type="button" class="chip" (click)="setSpan(s.days)">+{{ s.label }}</button>
+      }
+    </div>
+    @if (timeError()) {
+      <p class="hint error">{{ timeError() }}</p>
+    }
+  </div>
+
+  <div class="actions">
+    <button type="button" class="link" (click)="showAdvanced = !showAdvanced" [attr.aria-expanded]="showAdvanced">
+      {{ showAdvanced ? '− Fewer constraints' : '+ More constraints' }}
+    </button>
+    <button type="submit" class="primary" [disabled]="busy() || resolving() || enabledCount() === 0">
+      {{ busy() ? 'Querying…' : 'Check observability' }}
+    </button>
+    <p class="hint muted">{{ enabledCount() }} service{{ enabledCount() === 1 ? '' : 's' }} selected</p>
+  </div>
+
+  @if (showAdvanced) {
+    <div class="advanced">
+      <div class="field">
+        <label for="min-obs">Minimum window (MIN_OBS)</label>
+        <div class="with-unit">
+          <input id="min-obs" type="number" min="0" step="1" name="minObs" [(ngModel)]="minObsMin" placeholder="any" />
+          <span class="muted">min</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="facility">Facility (FACILITY)</label>
+        <input id="facility" name="facility" [(ngModel)]="facility" placeholder="e.g. SKA1/LOW11" />
+      </div>
+      <p class="hint muted note">
+        MIN_OBS and FACILITY are optional in ObjObsSAP; a service that does not support them ignores them.
+      </p>
+    </div>
+  }
+</form>

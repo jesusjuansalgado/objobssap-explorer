@@ -1,0 +1,100 @@
+<div class="sky">
+  <div class="viewer">
+    <div #aladin class="aladin"></div>
+    @if (status() === 'loading') {
+      <div class="overlay">Loading Aladin Lite…</div>
+    } @else if (status() === 'error') {
+      <div class="overlay error">Aladin Lite could not start: {{ error() }}</div>
+    }
+    @if (!target() && status() === 'ready') {
+      <div class="overlay soft">Enter a target to centre the view</div>
+    }
+  </div>
+
+  <aside class="chooser" aria-label="Sky survey">
+    <div class="current">
+      <span class="label">Survey</span>
+      <span class="title" [title]="currentHips()">{{ currentTitle() }}</span>
+      <code>{{ currentHips() }}</code>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Wavelength regime">
+      @for (r of regimes; track r.key) {
+        <button
+          role="tab"
+          class="tab"
+          [class.active]="activeRegime().key === r.key"
+          [attr.aria-selected]="activeRegime().key === r.key"
+          [style.--accent]="r.color"
+          (click)="selectRegime(r)"
+        >
+          {{ r.label }}
+        </button>
+      }
+    </div>
+
+    <ul class="surveys">
+      @for (s of activeRegime().surveys; track s.id) {
+        <li>
+          <button
+            class="survey"
+            [class.selected]="currentHips() === s.id"
+            [class.nocov]="covers(s.id) === false"
+            [style.--accent]="activeRegime().color"
+            [title]="covers(s.id) === false ? s.id + ' — no coverage at the target' : s.id"
+            (click)="selectHips(s.id)"
+          >
+            <span class="dot"></span>
+            <span class="name">{{ s.title }}</span>
+            @if (covers(s.id) === false) {
+              <span class="badge">no data here</span>
+            }
+          </button>
+        </li>
+      }
+    </ul>
+
+    <div class="more">
+      @if (!moreSurveys()[activeRegime().key]) {
+        <button class="link" (click)="loadMore()" [disabled]="loadingMore()">
+          {{ loadingMore() ? 'Loading…' : 'More ' + activeRegime().label + ' surveys from CDS…' }}
+        </button>
+      } @else {
+        <input
+          type="search"
+          placeholder="Filter {{ filteredMore().length }} more surveys…"
+          [value]="moreFilter()"
+          (input)="moreFilter.set($any($event.target).value)"
+        />
+        <ul class="surveys more-list">
+          @for (s of filteredMore(); track s.id) {
+            <li>
+              <button
+                class="survey small"
+                [class.selected]="currentHips() === s.id"
+                [class.nocov]="covers(s.id) === false"
+                [style.--accent]="activeRegime().color"
+                [title]="s.id"
+                (click)="selectHips(s.id)"
+              >
+                <span class="dot"></span><span class="name">{{ s.title }}</span>
+              </button>
+            </li>
+          } @empty {
+            <li class="muted small-note">No other surveys</li>
+          }
+        </ul>
+      }
+    </div>
+
+    <div class="fov">
+      <span class="label">Field</span>
+      @for (f of [0.1, 0.5, 2, 10, 60]; track f) {
+        <button class="chip" [class.on]="Math.abs(fov() - f) < f * 0.05" (click)="setFov(f)">
+          {{ f < 1 ? f * 60 + '′' : f + '°' }}
+        </button>
+      }
+      <button class="chip" (click)="recenter()" [disabled]="!target()" title="Centre on the target">⌖</button>
+    </div>
+  </aside>
+</div>

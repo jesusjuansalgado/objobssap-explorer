@@ -1,0 +1,199 @@
+<div class="toolbar">
+  <div class="range-label">
+    <strong>{{ formatUtc(viewMin()) }}</strong> → <strong>{{ formatUtc(viewMax()) }}</strong> UTC
+    <span class="muted">({{ formatDuration((viewMax() - viewMin()) * 86400) }})</span>
+  </div>
+  <div class="tools">
+    <button class="icon" (click)="pan(-0.5)" [disabled]="!zoomed()" title="Pan earlier">◀</button>
+    <button class="icon" (click)="zoom(0.5)" title="Zoom in">＋</button>
+    <button class="icon" (click)="zoom(2)" [disabled]="!zoomed()" title="Zoom out">－</button>
+    <button class="icon" (click)="pan(0.5)" [disabled]="!zoomed()" title="Pan later">▶</button>
+    <button class="secondary small" (click)="resetZoom()" [disabled]="!zoomed()">Reset</button>
+    <button class="secondary small" (click)="exportCsv()" [disabled]="!rows().length">Export CSV</button>
+  </div>
+</div>
+<p class="help muted">Drag across the timelines to zoom in · Ctrl/⌘ + wheel to zoom · Shift + wheel to pan · click a window for details</p>
+
+<div class="grid">
+  <!-- Left column: labels -->
+  <div class="labels">
+    <div class="axis-spacer"></div>
+    @for (row of rows(); track row.key) {
+      <div class="label-cell" [class.sub]="row.sublabel">
+        <span class="swatch" [style.background]="row.color"></span>
+        <div class="label-text">
+          <div class="name" [title]="row.result.service.url">
+            {{ row.sublabel ? row.sublabel : row.label }}
+            @if (row.result.service.regime && !row.sublabel) {
+              <span class="regime">{{ row.result.service.regime }}</span>
+            }
+          </div>
+          <div class="stats">
+            @switch (row.result.state) {
+              @case ('loading') { <span class="muted">querying…</span> }
+              @case ('error') {
+                <span class="err">error</span>
+                <button class="link tiny" (click)="retry.emit(row.serviceId)">retry</button>
+              }
+              @case ('ok') {
+                @if (row.windows.length) {
+                  <span>{{ row.windows.length }} window{{ row.windows.length === 1 ? '' : 's' }}</span>
+                  <span class="muted">· {{ formatDuration(row.totalSeconds) }} ({{ (coverage(row) * 100).toFixed(coverage(row) < 0.1 ? 1 : 0) }}%)</span>
+                } @else {
+                  <span class="muted">not observable</span>
+                }
+              }
+            }
+          </div>
+        </div>
+        @if (row.result.state === 'ok') {
+          <label class="incl" title="Include in the simultaneous-observability row">
+            <input type="checkbox" [checked]="!excluded().has(row.key)" (change)="toggleIncluded(row.key)" />
+          </label>
+        }
+      </div>
+    }
+    @if (simultaneous(); as sim) {
+      <div class="label-cell sim">
+        <span class="swatch sim-swatch"></span>
+        <div class="label-text">
+          <div class="name">Simultaneous</div>
+          <div class="stats">
+            <span>{{ sim.intervals.length }} window{{ sim.intervals.length === 1 ? '' : 's' }}</span>
+            <span class="muted">· {{ formatDuration(sim.total) }} · {{ sim.count }} rows</span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Right column: tracks -->
+  <div
+    #track
+    class="tracks"
+    (wheel)="onWheel($event)"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp()"
+    (pointercancel)="onPointerUp()"
+    (dblclick)="resetZoom()"
+  >
+    <svg class="axis" [attr.width]="width()" height="28">
+      @for (t of ticks(); track t.x) {
+        <line [attr.x1]="t.x" [attr.x2]="t.x" y1="18" y2="28" [class.major]="t.major" />
+        <text [attr.x]="t.x + 3" y="14" [class.major]="t.major">{{ t.label }}</text>
+      }
+    </svg>
+
+    @for (row of rows(); track row.key) {
+      <svg class="row" [class.sub]="row.sublabel" [attr.width]="width()" height="40">
+        @for (t of ticks(); track t.x) {
+          <line class="grid-line" [class.major]="t.major" [attr.x1]="t.x" [attr.x2]="t.x" y1="0" y2="40" />
+        }
+        @switch (row.result.state) {
+          @case ('loading') {
+            <rect class="loading" x="0" y="12" [attr.width]="width()" height="16" rx="3" />
+          }
+          @case ('error') {
+            <rect class="error-bg" x="0" y="8" [attr.width]="width()" height="24" rx="3" />
+            <text class="error-text" x="8" y="24">{{ row.result.error }}</text>
+          }
+          @case ('ok') {
+            <rect class="base" x="0" y="12" [attr.width]="width()" height="16" rx="3" />
+            @for (w of visibleWindows(row); track $index) {
+              @if (rect(w.tStart, w.tStop); as r) {
+                <rect
+                  class="win"
+                  [attr.x]="r.x"
+                  [attr.width]="r.w"
+                  y="8"
+                  height="24"
+                  rx="2"
+                  [attr.fill]="row.color"
+                  [class.low]="w.validityAccuracy === 'LOW'"
+                  [class.sel]="selected()?.w === w"
+                  (mousemove)="showHover($event, row, w)"
+                  (mouseleave)="hover.set(undefined)"
+                  (click)="select(row, w)"
+                />
+              }
+            }
+            @if (row.result.table?.tMaxHardLimit; as lim) {
+              @if (rect(lim, tMax()); as r) {
+                <rect class="hard-limit" [attr.x]="r.x" [attr.width]="r.w" y="4" height="32">
+                  <title>Beyond the service's prediction horizon (T_MAX_HARD_LIMIT {{ formatUtc(lim) }})</title>
+                </rect>
+              }
+            }
+          }
+        }
+        @if (now() >= viewMin() && now() <= viewMax()) {
+          <line class="now" [attr.x1]="x(now())" [attr.x2]="x(now())" y1="0" y2="40" />
+        }
+      </svg>
+    }
+
+    @if (simultaneous(); as sim) {
+      <svg class="row sim" [attr.width]="width()" height="40">
+        @for (t of ticks(); track t.x) {
+          <line class="grid-line" [class.major]="t.major" [attr.x1]="t.x" [attr.x2]="t.x" y1="0" y2="40" />
+        }
+        <rect class="base" x="0" y="12" [attr.width]="width()" height="16" rx="3" />
+        @for (i of visibleIntervals(sim.intervals); track $index) {
+          @if (rect(i.start, i.stop); as r) {
+            <rect
+              class="win sim-win"
+              [attr.x]="r.x"
+              [attr.width]="r.w"
+              y="8"
+              height="24"
+              rx="2"
+              (mousemove)="showSimHover($event, i)"
+              (mouseleave)="hover.set(undefined)"
+            />
+          }
+        }
+        @if (now() >= viewMin() && now() <= viewMax()) {
+          <line class="now" [attr.x1]="x(now())" [attr.x2]="x(now())" y1="0" y2="40" />
+        }
+      </svg>
+    }
+
+    @if (brush(); as b) {
+      <div class="brush" [style.left.px]="b.x0" [style.width.px]="b.x1 - b.x0"></div>
+    }
+  </div>
+</div>
+
+@if (hover(); as h) {
+  <div class="tooltip" [style.left.px]="h.x + 14" [style.top.px]="h.y + 14">
+    <div class="tt-title">
+      @if (h.row.color) { <span class="swatch" [style.background]="h.row.color"></span> }
+      {{ h.row.label }}{{ h.row.sublabel ? ' · ' + h.row.sublabel : '' }}
+    </div>
+    <div><span class="muted">start</span> {{ formatUtc(h.w.tStart, true) }}</div>
+    <div><span class="muted">stop</span>&nbsp; {{ formatUtc(h.w.tStop, true) }}</div>
+    <div><span class="muted">length</span> {{ formatDuration(h.w.duration) }}</div>
+    @if (h.w.validityAccuracy) {
+      <div><span class="muted">confidence</span> {{ h.w.validityAccuracy }}</div>
+    }
+  </div>
+}
+
+@if (selected(); as s) {
+  <div class="details">
+    <div class="details-head">
+      <span class="swatch" [style.background]="s.row.color"></span>
+      <strong>{{ s.row.label }}</strong>
+      <span class="muted">{{ formatUtc(s.w.tStart, true) }} → {{ formatUtc(s.w.tStop, true) }} UTC · {{ formatDuration(s.w.duration) }}</span>
+      <button class="link" (click)="selected.set(undefined)">close</button>
+    </div>
+    <table>
+      <tbody>
+        @for (e of rawEntries(s.w); track e[0]) {
+          <tr><th>{{ e[0] }}</th><td>{{ e[1] }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

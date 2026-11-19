@@ -1,0 +1,63 @@
+<div class="head">
+  <p class="muted">
+    ObjObsSAP services queried for each search. Defaults come from this deployment’s <code>services.json</code>;
+    services you add are kept in this browser.
+  </p>
+  <div class="head-actions">
+    <button class="secondary small" (click)="checkAll()">Check availability</button>
+    <button class="secondary small" (click)="registry.resetToDefaults()">Reset</button>
+  </div>
+</div>
+
+<ul class="list">
+  @for (s of registry.services(); track s.id) {
+    <li [class.off]="!s.enabled">
+      <label class="toggle">
+        <input type="checkbox" [checked]="s.enabled" (change)="registry.setEnabled(s.id, $any($event.target).checked)" />
+        <span class="name">{{ s.name }}</span>
+      </label>
+      <span class="meta">
+        @if (s.regime) { <span class="pill">{{ s.regime }}</span> }
+        @if (s.paramStyle === 'objvissap') { <span class="pill warn" title="Uses pre-1.0 ObjVisSAP parameter names">ObjVisSAP</span> }
+        @if (!s.useProxy) { <span class="pill" title="Queried directly from the browser (service must send CORS headers)">direct</span> }
+        @if (s.custom) { <span class="pill">yours</span> }
+      </span>
+      <code class="url" [title]="s.url">{{ s.url }}</code>
+      <span class="status">
+        @switch (availability()[s.id]) {
+          @case ('checking') { <span class="muted">checking…</span> }
+          @case ('up') { <span class="up">● available</span> }
+          @case ('down') { <span class="down">● unavailable</span> }
+        }
+      </span>
+      @if (s.custom) {
+        <button class="link" (click)="registry.removeCustom(s.id)">remove</button>
+      }
+      @if (s.notes) {
+        <p class="notes muted">{{ s.notes }}</p>
+      }
+    </li>
+  }
+</ul>
+
+@if (adding) {
+  <form class="add" (ngSubmit)="add()">
+    <input name="name" [(ngModel)]="draft.name" placeholder="Name (e.g. My Telescope)" />
+    <input name="url" [(ngModel)]="draft.url" placeholder="https://example.org/objobssap/query" required class="wide" />
+    <input name="regime" [(ngModel)]="draft.regime" placeholder="Regime (e.g. X-ray)" />
+    <select name="style" [(ngModel)]="draft.paramStyle">
+      <option value="objobssap">ObjObsSAP 1.0 (POS, TIME)</option>
+      <option value="objvissap">ObjVisSAP draft (s_ra, s_dec, t_min, t_max)</option>
+    </select>
+    <label class="inline"><input type="checkbox" name="proxy" [(ngModel)]="draft.useProxy" /> via proxy</label>
+    <button type="submit" class="primary small">Add</button>
+    <button type="button" class="link" (click)="adding = false">cancel</button>
+    @if (draftError) { <p class="error">{{ draftError }}</p> }
+    <p class="muted hint">
+      Through the proxy, only hosts the deployment allows are reachable (its <code>services.json</code> and
+      <code>PROXY_ALLOW_HOSTS</code>). Untick “via proxy” for a service that sends CORS headers.
+    </p>
+  </form>
+} @else {
+  <button class="link" (click)="adding = true">+ Add a service</button>
+}

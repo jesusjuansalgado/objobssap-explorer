@@ -1,0 +1,70 @@
+{
+  "services": [
+    {
+      "id": "swift",
+      "name": "Swift",
+      "url": "https://www.swift.psu.edu/vo/objobssap/query",
+      "regime": "X-ray / UV",
+      "kind": "space",
+      "paramStyle": "objobssap",
+      "useProxy": true,
+      "enabled": true,
+      "notes": "Neil Gehrels Swift Observatory SOC. Windows follow Swift's ~96 min orbit."
+    },
+    {
+      "id": "vo-labs-example",
+      "name": "Example Observatory",
+      "url": "https://vo-labs.dev/objobssap/api/query",
+      "regime": "demo",
+      "kind": "ground",
+      "paramStyle": "objobssap",
+      "useProxy": true,
+      "enabled": true,
+      "notes": "Reference ObjObsSAP implementation (FastAPI); returns synthetic windows for testing."
+    },
+    {
+      "id": "gaia",
+      "name": "Gaia (GOST)",
+      "url": "https://gaia.esac.esa.int/gost/ObjVisSAP/gaiaobjvisap",
+      "regime": "Optical",
+      "kind": "space",
+      "paramStyle": "objvissap",
+      "useProxy": true,
+      "enabled": false,
+      "notes": "Gaia scanning-law predictions; the ephemeris ends in July 2025, so only past windows can be queried. Uses the older ObjVisSAP parameters."
+    },
+    {
+      "id": "xmm",
+      "name": "XMM-Newton",
+      "url": "http://xmmvisibility.esac.esa.int/vischecker/ServVISC",
+      "regime": "X-ray",
+      "kind": "space",
+      "paramStyle": "objobssap",
+      "useProxy": true,
+      "enabled": false,
+      "notes": "Listed on the IVOA ObjObsSAP page; not answering at the time of writing."
+    },
+    {
+      "id": "chandra",
+      "name": "Chandra",
+      "url": "http://integral.esa.int/interest//api/visibilities/chandra",
+      "regime": "X-ray",
+      "kind": "space",
+      "paramStyle": "objobssap",
+      "useProxy": true,
+      "enabled": false,
+      "notes": "Under development (INTEREST gateway)."
+    },
+    {
+      "id": "not",
+      "name": "Nordic Optical Telescope",
+      "url": "http://integral.esa.int/interest//api/visibilities/not",
+      "regime": "Optical",
+      "kind": "ground",
+      "paramStyle": "objobssap",
+      "useProxy": true,
+      "enabled": false,
+      "notes": "INTEREST gateway; not answering at the time of writing."
+    }
+  ]
+}
