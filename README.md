@@ -19,6 +19,8 @@ reopens and re-runs it.
 
 ## Run it
 
+Needs **Node.js 22.22.3+ or 24.15+** (Angular 22's minimum); `.nvmrc` selects Node 24 for `nvm use`.
+
 ```bash
 npm install
 npm start            # http://localhost:4200, with the /proxy endpoint
